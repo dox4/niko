@@ -1,0 +1,7 @@
+[db]
+db_name = "niko"
+db_type = "mysql"
+host = "192.168.31.204"
+password = "MySQL@k8s"
+port = 3306
+user = "root"
