@@ -5,3 +5,15 @@ host = "192.168.31.204"
 password = "MySQL@k8s"
 port = 3306
 user = "root"
+
+[server]
+host = "0.0.0.0"
+port = 9001
+
+[log]
+level = "DEBUG"
+dir_name = "/home/dox4/log/niko/"
+file_name = "niko.log"
+
+[dir]
+full_path = "/home/dox4/github/niko"

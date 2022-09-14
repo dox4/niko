@@ -30,7 +30,7 @@ pub async fn paged_fetch(page_num: u64, page_size: u64) -> Result<Vec<File>, sql
 
 pub async fn create(file: File) -> Result<u64, sqlx::Error> {
     Ok(sqlx::query(
-        r#"INSERT INTO files
+        r#"INSERT INTO `files`
         (`parent`, `name`, `is_dir`, `size`, `permission`, `created_at`, `updated_at`)
         VALUES (?, ?, ?, ?, ?, ?, ?)"#,
     )
@@ -42,16 +42,49 @@ pub async fn create(file: File) -> Result<u64, sqlx::Error> {
     .bind(file.created_at)
     .bind(file.updated_at)
     .execute(db::global_pool())
-    // .fetch_one(db::global_pool())
     .await?
     .last_insert_id())
 }
 
 pub async fn fetch_by_id(id: u64) -> Result<File, sqlx::Error> {
     Ok(
-        sqlx::query_as::<_, File>("SELECT * FROM `files` WHERE `id` = ?")
+        sqlx::query_as::<_, File>("SELECT * FROM `files` WHERE `deleted_at` IS NULL AND `id` = ?")
             .bind(id)
             .fetch_one(db::global_pool())
             .await?,
     )
+}
+
+pub async fn fetch_one_by_path(parent: String, name: String) -> Result<File, sqlx::Error> {
+    Ok(sqlx::query_as::<_, File>(
+        "SELECT * FROM `file` WHERE `deleted_at` IS NULL AND `parent` = ? AND `name` = ?",
+    )
+    .bind(parent)
+    .bind(name)
+    .fetch_one(db::global_pool())
+    .await?)
+}
+
+pub async fn update_by_id(f: File) -> Result<u64, sqlx::Error> {
+    let upd_sql = r#"UPDATE `files` SET
+        `parent` = ?,
+        `name` = ?,
+        `is_dir` = ?,
+        `size` = ?,
+        `permission` = ?,
+        `created_at` = ?,
+        `updated_at` = ?
+    WHERE `id` = ?"#;
+    Ok(sqlx::query(upd_sql)
+        .bind(f.parent)
+        .bind(f.name)
+        .bind(f.is_dir)
+        .bind(f.size)
+        .bind(f.permission)
+        .bind(f.created_at)
+        .bind(f.updated_at)
+        .bind(f.id)
+        .execute(db::global_pool())
+        .await?
+        .rows_affected())
 }
