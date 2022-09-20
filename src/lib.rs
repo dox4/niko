@@ -1,5 +1,5 @@
 pub mod config;
-pub mod fs;
+pub mod storage;
 pub mod db;
 pub mod model;
 pub mod api;

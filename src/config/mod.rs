@@ -1,7 +1,10 @@
-use std::net::{IpAddr, SocketAddr};
+use std::{fs, net::SocketAddr};
 
 use getset::Getters;
+use once_cell::sync::OnceCell;
 use serde_derive::Deserialize;
+
+static CONFIG: OnceCell<NiKoConfig> = OnceCell::new();
 
 #[derive(Debug, Deserialize, Getters)]
 pub struct NiKoConfig<'n> {
@@ -73,6 +76,14 @@ impl NiKoServerConfig<'_> {
     }
 }
 
-pub fn from_slice(src: &[u8]) -> NiKoConfig {
-    toml::from_slice(src).expect("read config failed.")
+static _CONF_DATA: OnceCell<Vec<u8>> = OnceCell::new();
+pub fn init_config(path: &str) {
+    let conf_data = fs::read(path).unwrap();
+    _CONF_DATA.set(conf_data).unwrap();
+    let nk = toml::from_slice(&_CONF_DATA.get().unwrap()).unwrap();
+    CONFIG.set(nk).unwrap();
+}
+
+pub fn config() -> &'static NiKoConfig<'static> {
+    &CONFIG.get().expect("get config failed.")
 }

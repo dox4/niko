@@ -1,6 +1,6 @@
 use serde_derive::Serialize;
 use sqlx::types::chrono::{DateTime, Local};
-use std::{fs::Metadata, os::unix::fs::PermissionsExt, path::Path};
+use std::{fs::Metadata, os::unix::fs::PermissionsExt, path::PathBuf};
 
 use crate::db;
 
@@ -31,23 +31,17 @@ impl Entry {
             deleted_at: None,
         }
     }
-
-    pub fn full_path(&self) -> String {
-        Path::new(self.parent.as_str())
-            .join(self.name.clone())
-            .to_string_lossy()
-            .into()
-    }
 }
 
 pub async fn paged_fetch(page_num: u64, page_size: u64) -> Result<Vec<Entry>, sqlx::Error> {
     let offset = (page_num - 1) * page_size;
     let limit = offset + page_size;
-    let rows = sqlx::query_as::<_, Entry>("SELECT * FROM files where deleted_at IS NULL LIMIT ?, ?")
-        .bind(offset)
-        .bind(limit)
-        .fetch_all(db::global_pool())
-        .await?;
+    let rows =
+        sqlx::query_as::<_, Entry>("SELECT * FROM files where deleted_at IS NULL LIMIT ?, ?")
+            .bind(offset)
+            .bind(limit)
+            .fetch_all(db::global_pool())
+            .await?;
     Ok(rows)
 }
 
@@ -132,28 +126,28 @@ pub async fn update_by_id(f: Entry) -> Result<u64, sqlx::Error> {
         .rows_affected())
 }
 
-pub async fn delete_by_path(file: Entry) -> Result<u64, sqlx::Error> {
+pub async fn delete_by_path(file: PathBuf) -> Result<u64, sqlx::Error> {
     let del_sql = r#"UPDATE `files` SET
     deleted_at = ?
     WHERE `parent` = ? AND `name` = ? AND deleted_at IS NULL"#;
     let now = Local::now();
     Ok(sqlx::query(del_sql)
         .bind(Some(now.clone()))
-        .bind(file.parent)
-        .bind(file.name)
+        .bind(file.parent().unwrap().to_str())
+        .bind(file.file_name().unwrap().to_str())
         .execute(db::global_pool())
         .await?
         .rows_affected())
 }
 
-pub async fn delete_by_parent(entry: Entry) -> Result<u64, sqlx::Error> {
+pub async fn delete_by_parent(pb: PathBuf) -> Result<u64, sqlx::Error> {
     let del_sql = r#"UPDATE `files` SET
     deleted_at = ?
     WHERE `parent` = ? AND deleted_at IS NULL"#;
     let now = Local::now();
     Ok(sqlx::query(del_sql)
         .bind(Some(now.clone()))
-        .bind(entry.full_path())
+        .bind(pb.as_path().to_str())
         .execute(db::global_pool())
         .await?
         .rows_affected())
