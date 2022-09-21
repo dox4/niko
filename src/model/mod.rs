@@ -1,2 +1,2 @@
-pub mod file;
+pub mod entry;
 pub mod metadata;

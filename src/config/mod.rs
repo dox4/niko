@@ -84,6 +84,6 @@ pub fn init_config(path: &str) {
     CONFIG.set(nk).unwrap();
 }
 
-pub fn config() -> &'static NiKoConfig<'static> {
+pub fn global_config() -> &'static NiKoConfig<'static> {
     &CONFIG.get().expect("get config failed.")
 }

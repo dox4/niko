@@ -37,7 +37,7 @@ pub async fn paged_fetch(page_num: u64, page_size: u64) -> Result<Vec<Entry>, sq
     let offset = (page_num - 1) * page_size;
     let limit = offset + page_size;
     let rows =
-        sqlx::query_as::<_, Entry>("SELECT * FROM files where deleted_at IS NULL LIMIT ?, ?")
+        sqlx::query_as::<_, Entry>("SELECT * FROM `entry` where deleted_at IS NULL LIMIT ?, ?")
             .bind(offset)
             .bind(limit)
             .fetch_all(db::global_pool())
@@ -50,14 +50,14 @@ pub enum CreateOrUpdate {
     Update(u64),
 }
 
-pub async fn create_or_update(mut file: Entry) -> Result<CreateOrUpdate, sqlx::Error> {
-    let row = fetch_one_by_path(file.parent.clone(), file.name.clone()).await;
+pub async fn create_or_update(mut entry: Entry) -> Result<CreateOrUpdate, sqlx::Error> {
+    let row = fetch_one_by_path(entry.parent.clone(), entry.name.clone()).await;
     match row {
-        Ok(file_in_db) => {
-            file.id = file_in_db.id;
-            Ok(CreateOrUpdate::Update(update_by_id(file).await?))
+        Ok(entry_in_db) => {
+            entry.id = entry_in_db.id;
+            Ok(CreateOrUpdate::Update(update_by_id(entry).await?))
         }
-        Err(sqlx::Error::RowNotFound) => Ok(CreateOrUpdate::Create(create(file).await?)),
+        Err(sqlx::Error::RowNotFound) => Ok(CreateOrUpdate::Create(create(entry).await?)),
         Err(err) => {
             tracing::error!("error occurred while quering by path: {:?}", err);
             Err(err)
@@ -65,19 +65,19 @@ pub async fn create_or_update(mut file: Entry) -> Result<CreateOrUpdate, sqlx::E
     }
 }
 
-pub async fn create(file: Entry) -> Result<u64, sqlx::Error> {
+pub async fn create(entry: Entry) -> Result<u64, sqlx::Error> {
     Ok(sqlx::query(
-        r#"INSERT INTO `files`
+        r#"INSERT INTO `entry`
         (`parent`, `name`, `is_dir`, `size`, `permission`, `created_at`, `updated_at`)
         VALUES (?, ?, ?, ?, ?, ?, ?)"#,
     )
-    .bind(file.parent)
-    .bind(file.name)
-    .bind(file.is_dir)
-    .bind(file.size)
-    .bind(file.permission)
-    .bind(file.created_at)
-    .bind(file.updated_at)
+    .bind(entry.parent)
+    .bind(entry.name)
+    .bind(entry.is_dir)
+    .bind(entry.size)
+    .bind(entry.permission)
+    .bind(entry.created_at)
+    .bind(entry.updated_at)
     .execute(db::global_pool())
     .await?
     .last_insert_id())
@@ -85,7 +85,7 @@ pub async fn create(file: Entry) -> Result<u64, sqlx::Error> {
 
 pub async fn fetch_by_id(id: u64) -> Result<Entry, sqlx::Error> {
     Ok(
-        sqlx::query_as::<_, Entry>("SELECT * FROM `files` WHERE `deleted_at` IS NULL AND `id` = ?")
+        sqlx::query_as::<_, Entry>("SELECT * FROM `entry` WHERE `deleted_at` IS NULL AND `id` = ?")
             .bind(id)
             .fetch_one(db::global_pool())
             .await?,
@@ -94,7 +94,7 @@ pub async fn fetch_by_id(id: u64) -> Result<Entry, sqlx::Error> {
 
 pub async fn fetch_one_by_path(parent: String, name: String) -> Result<Entry, sqlx::Error> {
     Ok(sqlx::query_as::<_, Entry>(
-        "SELECT * FROM `file` WHERE `deleted_at` IS NULL AND `parent` = ? AND `name` = ?",
+        "SELECT * FROM `entry` WHERE `deleted_at` IS NULL AND `parent` = ? AND `name` = ?",
     )
     .bind(parent)
     .bind(name)
@@ -102,8 +102,8 @@ pub async fn fetch_one_by_path(parent: String, name: String) -> Result<Entry, sq
     .await?)
 }
 
-pub async fn update_by_id(f: Entry) -> Result<u64, sqlx::Error> {
-    let upd_sql = r#"UPDATE `files` SET
+pub async fn update_by_id(e: Entry) -> Result<u64, sqlx::Error> {
+    let upd_sql = r#"UPDATE `entry` SET
         `parent` = ?,
         `name` = ?,
         `is_dir` = ?,
@@ -113,35 +113,35 @@ pub async fn update_by_id(f: Entry) -> Result<u64, sqlx::Error> {
         `updated_at` = ?
     WHERE `id` = ?"#;
     Ok(sqlx::query(upd_sql)
-        .bind(f.parent)
-        .bind(f.name)
-        .bind(f.is_dir)
-        .bind(f.size)
-        .bind(f.permission)
-        .bind(f.created_at)
-        .bind(f.updated_at)
-        .bind(f.id)
+        .bind(e.parent)
+        .bind(e.name)
+        .bind(e.is_dir)
+        .bind(e.size)
+        .bind(e.permission)
+        .bind(e.created_at)
+        .bind(e.updated_at)
+        .bind(e.id)
         .execute(db::global_pool())
         .await?
         .rows_affected())
 }
 
-pub async fn delete_by_path(file: PathBuf) -> Result<u64, sqlx::Error> {
-    let del_sql = r#"UPDATE `files` SET
+pub async fn delete_by_path(pb: PathBuf) -> Result<u64, sqlx::Error> {
+    let del_sql = r#"UPDATE `entry` SET
     deleted_at = ?
     WHERE `parent` = ? AND `name` = ? AND deleted_at IS NULL"#;
     let now = Local::now();
     Ok(sqlx::query(del_sql)
-        .bind(Some(now.clone()))
-        .bind(file.parent().unwrap().to_str())
-        .bind(file.file_name().unwrap().to_str())
+        .bind(Some(now))
+        .bind(pb.parent().unwrap().to_str())
+        .bind(pb.file_name().unwrap().to_str())
         .execute(db::global_pool())
         .await?
         .rows_affected())
 }
 
 pub async fn delete_by_parent(pb: PathBuf) -> Result<u64, sqlx::Error> {
-    let del_sql = r#"UPDATE `files` SET
+    let del_sql = r#"UPDATE `entry` SET
     deleted_at = ?
     WHERE `parent` = ? AND deleted_at IS NULL"#;
     let now = Local::now();

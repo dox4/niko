@@ -2,12 +2,12 @@ use once_cell::sync::OnceCell;
 use sqlx::MySql;
 use sqlx::Pool;
 
-use crate::config::NiKoDbConfig;
+use crate::config::global_config;
 
 static POOL: OnceCell<Pool<MySql>> = OnceCell::new();
 
-pub async fn init_db(db: &NiKoDbConfig<'_>) {
-    let url = db.db_url();
+pub async fn init_db() {
+    let url = global_config().db().db_url();
     POOL.set(Pool::<MySql>::connect(&url).await.unwrap())
         .unwrap();
 }

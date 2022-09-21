@@ -23,15 +23,13 @@ pub async fn find_key_updated_at(key: String) -> Result<DateTime<Local>, sqlx::E
 }
 
 pub async fn create_key(key: String, value: String) -> Result<DateTime<Local>, sqlx::Error> {
-    Ok(
-        sqlx::query_as::<_, Metadata>("INSERT INTO metadata VALUES (?, ?, ?)")
-            .bind(key)
-            .bind(value)
-            .bind(Local::now())
-            .fetch_one(db::global_pool())
-            .await?
-            .updated_at,
-    )
+    sqlx::query("INSERT INTO metadata VALUES (?, ?, ?)")
+        .bind(key.clone())
+        .bind(value)
+        .bind(Local::now())
+        .execute(db::global_pool())
+        .await?;
+    Ok(find_key_updated_at(key).await?)
 }
 
 pub async fn update_key(key: String, value: String) -> Result<DateTime<Local>, sqlx::Error> {
